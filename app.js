@@ -21,6 +21,8 @@ function checkPosition(){
     $( ".word" ).each( function( index, element ){
         if ( parseInt($( this ).css('top').replace("px")) > verticalLimit ) {
             running = false;
+            clearTimeout(myTimer);
+            clearTimeout(wordTimer);
         }
     });
 }
