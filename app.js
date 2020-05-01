@@ -1,6 +1,6 @@
-startVelocity=2000;
+startVelocity=3000;
 velocity = startVelocity;
-startWordInterval = 2000;
+startWordInterval = 3000;
 wordInterval = startWordInterval;
 moveDistance = 30;
 moveDistancePx="+=" + moveDistance + "px";
