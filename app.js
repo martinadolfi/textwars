@@ -78,5 +78,9 @@ $(document).ready(function(){
     })
     ramper();
     creator();
+    // Force focus on textbox
+    $( ".gameScreen" ).click(function(){
+        $("#myInput").focus();
+    })
 });
 
