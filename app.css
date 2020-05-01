@@ -1,0 +1,11 @@
+.word {
+    position: absolute;
+    top: 80px;
+    border: 1px solid #AA0000;
+  }
+.gameScreen {
+    border: 4px solid #00BB00;
+    height: 600px;
+    width: 600px;
+}
+  
