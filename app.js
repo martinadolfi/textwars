@@ -1,4 +1,4 @@
-startVelocity=3000;
+startVelocity=2000;
 velocity = startVelocity;
 startWordInterval = 2000;
 wordInterval = startWordInterval;
