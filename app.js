@@ -31,7 +31,7 @@ function getScoreFromWord(word){
 
 function keyPressed(box,event){
     if ( finishWords.includes(event.which) )  {
-        currentWord=box.val()
+        currentWord=box.val().toLowerCase();
         $( ".word" ).each(function (index,element){
             if ( element.innerText == currentWord ) {
                 element.remove();
@@ -74,7 +74,7 @@ $(document).ready(function(){
         if ( finishWords.includes(event.which) ) {
             event.preventDefault();
          }       
-        keyPressed ($(this),event );
+        if ( running ){ keyPressed ($(this),event )} ;
     })
     ramper();
     creator();
