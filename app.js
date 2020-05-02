@@ -75,10 +75,6 @@ function creator(){
 }
 
 $(document).ready(function(){
-    // myTimer = setInterval(function(){
-    //       moveDown();    
-    // },velocity);
-    //wordTimer = setInterval(createOneWord,wordInterval);
     initSizes();
     $( "#myInput" ).keypress(function(event){
         if ( finishWords.includes(event.which) ) {
