@@ -54,7 +54,7 @@ function keyPressed(box,event){
     }
 }
 function createOneWord(){
-    jQuery('<div class="word" style="left:'+ (Math.round(Math.random()*(90))+10)+'%">'+ wordList[Math.round(Math.random()*wordCount)]+'</div>').appendTo('#gameScreen');
+    jQuery('<div class="word" style="left:'+ (Math.round(Math.random()*(80))+10)+'%">'+ wordList[Math.round(Math.random()*wordCount)]+'</div>').appendTo('#gameScreen');
 }
 
 function ramper(){
