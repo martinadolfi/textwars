@@ -34,12 +34,14 @@ function getScoreFromWord(word){
 function keyPressed(box,event){
     if ( finishWords.includes(event.which) )  {
         currentWord=box.val().toLowerCase();
-        $( ".word" ).each(function (index,element){
-            if ( element.innerText == currentWord ) {
-                element.remove();
+        $( ".word" ).each(function (){
+            if ( $(this)[0].innerText == currentWord ) {
+                $(this).fadeOut(function(){$(this)[0].remove()});
                 currentScore+=getScoreFromWord(currentWord)
                 $( "#currentScore" ).text(currentScore);
-            }});
+                return false;
+            }
+        });
         box.val('');
     } else {
         currentWord=box.val() + String.fromCharCode(event.which);
