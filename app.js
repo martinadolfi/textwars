@@ -4,13 +4,18 @@ startWordInterval = 3000;
 wordInterval = startWordInterval;
 moveDistance = 30;
 moveDistancePx="+=" + moveDistance + "px";
-verticalLimit = 600;
+vLimit = 600;
 hLimit = 600;
 finishWords = [13,32]
 wordCount = wordList.length
 currentScore = 0;
 running = true;
 var myTimer,wordTimer
+
+function initSizes(){
+    hLimit=$(".gameScreen").width();
+    vLimit=$(".gameScreen").height();
+}
 
 function moveDown(){
     $( ".word" ).animate({'top': moveDistancePx});
@@ -19,7 +24,7 @@ function moveDown(){
 
 function checkPosition(){
     $( ".word" ).each( function( index, element ){
-        if ( parseInt($( this ).css('top').replace("px")) > verticalLimit ) {
+        if ( parseInt($( this ).css('top').replace("px")) > vLimit ) {
             running = false;
             clearTimeout(myTimer);
             clearTimeout(wordTimer);
@@ -74,6 +79,7 @@ $(document).ready(function(){
     //       moveDown();    
     // },velocity);
     //wordTimer = setInterval(createOneWord,wordInterval);
+    initSizes();
     $( "#myInput" ).keypress(function(event){
         if ( finishWords.includes(event.which) ) {
             event.preventDefault();
