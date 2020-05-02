@@ -28,6 +28,7 @@ function checkPosition(){
             running = false;
             clearTimeout(myTimer);
             clearTimeout(wordTimer);
+            $(".gameScreen").css('background-color', 'red');
         }
     });
 }
@@ -53,7 +54,7 @@ function keyPressed(box,event){
     }
 }
 function createOneWord(){
-    jQuery('<div class="word" style="left:'+ Math.round(Math.random()*hLimit)+'px">'+ wordList[Math.round(Math.random()*wordCount)]+'</div>').appendTo('#gameScreen');
+    jQuery('<div class="word" style="left:'+ (Math.round(Math.random()*(hLimit-50))+50)+'px">'+ wordList[Math.round(Math.random()*wordCount)]+'</div>').appendTo('#gameScreen');
 }
 
 function ramper(){
