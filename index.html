@@ -6,9 +6,14 @@
 </head>
 <body>
     <div id="controls" class="controlP">
-        <input type="text" id="myInput" name="text"> 
+        <input type="text" id="myInput" name="text" autocomplete="off" placeholder="Type a word and press Enter"> 
+        <button id="restartButton" type="button">Restart</button>
     </div>
-    <div id="score" class="score">Tu Puntaje:  <div id="currentScore">0</div></div>
+    <div id="hud" class="hud">
+        <div id="score" class="score">Tu Puntaje: <span id="currentScore">0</span></div>
+        <div id="lives" class="lives">Vidas: <span id="currentLives">3</span></div>
+    </div>
+    <div class="hint">Tip: remove words by typing them exactly and pressing Enter or Space.</div>
     <div id="gameScreen" class="gameScreen">
     </div>
 
