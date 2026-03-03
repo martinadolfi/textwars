@@ -1,172 +1,257 @@
-let startVelocity = 2200;
-let startWordInterval = 2200;
-const moveDistance = 28;
-const moveDistancePx = "+=" + moveDistance + "px";
-let vLimit = 600;
-const finishWords = [13, 32]; // Enter and Space
+const finishKeys = ["Enter", " "];
 const maxLives = 3;
 
-let currentScore = 0;
-let currentLives = maxLives;
-let running = false;
-let myTimer;
-let wordTimer;
+const game = {
+    running: false,
+    score: 0,
+    lives: maxLives,
+    combo: 0,
+    wave: 1,
+    enemies: [],
+    enemyId: 0,
+    spawnTimerMs: 0,
+    lastFrameTs: 0,
+    speedBoost: 0,
+    rafId: 0
+};
 
-function initSizes() {
-    vLimit = $(".gameScreen").height();
-}
+const dom = {
+    gameScreen: null,
+    wordLayer: null,
+    fxLayer: null,
+    input: null,
+    gameOverPanel: null,
+    gameOverText: null,
+    score: null,
+    lives: null,
+    combo: null,
+    wave: null
+};
 
-function getWordPoolSize() {
-    return wordList.length - 1;
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
 }
 
 function updateHud() {
-    $("#currentScore").text(currentScore);
-    $("#currentLives").text(currentLives);
+    dom.score.text(game.score);
+    dom.lives.text(game.lives);
+    dom.combo.text(`x${Math.max(1, game.combo)}`);
+    dom.wave.text(game.wave);
 }
 
-function getScoreFromWord(word) {
-    return word.length;
+function screenSize() {
+    return {
+        width: dom.gameScreen.width(),
+        height: dom.gameScreen.height()
+    };
 }
 
 function randomWord() {
-    return wordList[Math.round(Math.random() * getWordPoolSize())];
+    return wordList[Math.floor(Math.random() * wordList.length)];
 }
 
-function removeWordAndScore(element) {
-    const word = element.innerText;
-    $(element).fadeOut(80, function () {
-        element.remove();
-    });
-    currentScore += getScoreFromWord(word);
-    updateHud();
+function currentSpawnIntervalMs() {
+    return clamp(1200 - game.wave * 80 - game.combo * 12, 260, 1200);
+}
+
+function currentFallSpeed() {
+    return 40 + game.wave * 11 + game.combo * 1.2;
+}
+
+function spawnEnemy() {
+    const size = screenSize();
+    const enemy = {
+        id: game.enemyId++,
+        word: randomWord(),
+        x: 70 + Math.random() * (size.width - 140),
+        y: 45,
+        speed: currentFallSpeed() + Math.random() * 16
+    };
+
+    enemy.el = $('<div class="word"></div>').text(enemy.word);
+    dom.wordLayer.append(enemy.el);
+    enemy.el.css({ left: `${enemy.x}px`, top: `${enemy.y}px` });
+
+    game.enemies.push(enemy);
+}
+
+function removeEnemy(enemy) {
+    enemy.el.remove();
+    game.enemies = game.enemies.filter((item) => item.id !== enemy.id);
 }
 
 function loseLife() {
-    currentLives -= 1;
+    game.lives -= 1;
     updateHud();
 
-    if (currentLives <= 0) {
-        stopGame("#8B0000");
+    if (game.lives <= 0) {
+        stopGame();
     }
 }
 
-function stopGame(backgroundColor) {
-    running = false;
-    clearTimeout(myTimer);
-    clearTimeout(wordTimer);
-    $(".gameScreen").css("background-color", backgroundColor || "#8B0000");
-    $("#myInput").prop("disabled", true);
+function fireLaser(enemy) {
+    const size = screenSize();
+    const sx = size.width / 2;
+    const sy = size.height - 30;
+    const ex = enemy.x;
+    const ey = enemy.y;
+
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+    const laser = $('<div class="laser"></div>');
+    laser.css({
+        left: `${sx}px`,
+        top: `${sy}px`,
+        width: `${distance}px`,
+        transform: `rotate(${angle}deg)`
+    });
+
+    dom.fxLayer.append(laser);
+    requestAnimationFrame(() => laser.css("opacity", 1));
+
+    setTimeout(() => {
+        laser.css("opacity", 0);
+        setTimeout(() => laser.remove(), 100);
+    }, 70);
+
+    const blast = $('<div class="explosion"></div>');
+    blast.css({ left: `${ex}px`, top: `${ey}px` });
+    dom.fxLayer.append(blast);
+    setTimeout(() => blast.remove(), 300);
 }
 
-function moveDown() {
-    $(".word").animate({ top: moveDistancePx }, 120, "linear");
-    checkPosition();
+function rewardHit(wordLength) {
+    game.combo += 1;
+    game.score += Math.round(wordLength * (1 + game.combo * 0.15));
+    game.wave = Math.max(1, Math.floor(game.score / 120) + 1);
+    updateHud();
 }
 
-function checkPosition() {
-    $(".word").each(function () {
-        const top = parseInt($(this).css("top").replace("px", ""), 10);
-        if (top > vLimit) {
-            this.remove();
+function penalizeMiss() {
+    game.combo = 0;
+    game.score = Math.max(0, game.score - 3);
+    dom.input.addClass("inputMiss");
+    setTimeout(() => dom.input.removeClass("inputMiss"), 130);
+    updateHud();
+}
+
+function submitShot() {
+    const typed = dom.input.val().trim().toLowerCase();
+    dom.input.val("");
+
+    if (!typed || !game.running) {
+        return;
+    }
+
+    const target = game.enemies.find((enemy) => enemy.word === typed);
+
+    if (!target) {
+        penalizeMiss();
+        return;
+    }
+
+    target.el.addClass("targeted");
+    fireLaser(target);
+    rewardHit(target.word.length);
+
+    setTimeout(() => {
+        removeEnemy(target);
+    }, 70);
+}
+
+function stopGame() {
+    game.running = false;
+    cancelAnimationFrame(game.rafId);
+    dom.input.prop("disabled", true);
+    dom.gameOverText.text(`Final score: ${game.score} · Wave reached: ${game.wave}`);
+    dom.gameOverPanel.removeClass("hidden");
+}
+
+function clearAllEnemies() {
+    game.enemies.forEach((enemy) => enemy.el.remove());
+    game.enemies = [];
+}
+
+function gameLoop(timestamp) {
+    if (!game.running) {
+        return;
+    }
+
+    if (!game.lastFrameTs) {
+        game.lastFrameTs = timestamp;
+    }
+
+    const dt = Math.min((timestamp - game.lastFrameTs) / 1000, 0.033);
+    game.lastFrameTs = timestamp;
+
+    game.spawnTimerMs += dt * 1000;
+    if (game.spawnTimerMs >= currentSpawnIntervalMs()) {
+        game.spawnTimerMs = 0;
+        spawnEnemy();
+    }
+
+    const size = screenSize();
+    const bottomLimit = size.height - 36;
+
+    game.enemies.slice().forEach((enemy) => {
+        enemy.y += enemy.speed * dt;
+        enemy.el.css({ top: `${enemy.y}px` });
+
+        if (enemy.y >= bottomLimit) {
+            removeEnemy(enemy);
+            game.combo = 0;
             loseLife();
         }
     });
-}
 
-function keyPressed(box, event) {
-    if (!finishWords.includes(event.which)) {
-        return;
-    }
-
-    event.preventDefault();
-    const currentWord = box.val().trim().toLowerCase();
-    if (!currentWord) {
-        return;
-    }
-
-    let matched = false;
-    $(".word").each(function () {
-        if ($(this)[0].innerText === currentWord) {
-            removeWordAndScore($(this)[0]);
-            matched = true;
-            return false;
-        }
-    });
-
-    if (!matched) {
-        currentScore = Math.max(0, currentScore - 1);
-        updateHud();
-    }
-
-    box.val("");
-}
-
-function createOneWord() {
-    if (!running) {
-        return;
-    }
-
-    const left = Math.round(Math.random() * 80) + 10;
-    jQuery('<div class="word" style="left:' + left + '%">' + randomWord() + "</div>").appendTo("#gameScreen");
-}
-
-function ramper() {
-    if (running) {
-        const nextTick = Math.max(550, startVelocity - currentScore * 14);
-        myTimer = setTimeout(function () {
-            moveDown();
-            ramper();
-        }, nextTick);
-    }
-}
-
-function creator() {
-    if (running) {
-        const nextWordTick = Math.max(700, startWordInterval - currentScore * 8);
-        wordTimer = setTimeout(function () {
-            createOneWord();
-            creator();
-        }, nextWordTick);
-    }
+    game.rafId = requestAnimationFrame(gameLoop);
 }
 
 function resetGame() {
-    clearTimeout(myTimer);
-    clearTimeout(wordTimer);
+    cancelAnimationFrame(game.rafId);
+    clearAllEnemies();
 
-    $(".word").remove();
-    $(".gameScreen").css("background-color", "#101929");
-    $("#myInput").prop("disabled", false).val("").focus();
-
-    currentScore = 0;
-    currentLives = maxLives;
-    running = true;
+    game.running = true;
+    game.score = 0;
+    game.lives = maxLives;
+    game.combo = 0;
+    game.wave = 1;
+    game.spawnTimerMs = 0;
+    game.lastFrameTs = 0;
 
     updateHud();
-    createOneWord();
-    ramper();
-    creator();
+    dom.input.prop("disabled", false).focus().val("");
+    dom.gameOverPanel.addClass("hidden");
+
+    spawnEnemy();
+    game.rafId = requestAnimationFrame(gameLoop);
 }
 
-$(document).ready(function () {
-    initSizes();
+$(function () {
+    dom.gameScreen = $("#gameScreen");
+    dom.wordLayer = $("#wordLayer");
+    dom.fxLayer = $("#fxLayer");
+    dom.input = $("#myInput");
+    dom.gameOverPanel = $("#gameOverPanel");
+    dom.gameOverText = $("#gameOverText");
+    dom.score = $("#currentScore");
+    dom.lives = $("#currentLives");
+    dom.combo = $("#currentCombo");
+    dom.wave = $("#currentWave");
 
-    $("#myInput").keypress(function (event) {
-        if (running) {
-            keyPressed($(this), event);
+    dom.input.on("keydown", (event) => {
+        if (finishKeys.includes(event.key)) {
+            event.preventDefault();
+            submitShot();
         }
     });
 
-    $(".gameScreen").click(function () {
-        $("#myInput").focus();
-    });
+    $("#restartButton").on("click", resetGame);
 
-    $("#restartButton").click(function () {
-        resetGame();
-    });
-
-    $(window).on("resize", initSizes);
+    dom.gameScreen.on("click", () => dom.input.focus());
 
     resetGame();
 });

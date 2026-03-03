@@ -1,20 +1,44 @@
+<!doctype html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TextWars: Typing Shooter</title>
     <script src="jquery-3.5.0.min.js"></script>
     <script src="wordList.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js" defer></script>
     <link rel="stylesheet" href="app.css">
 </head>
 <body>
-    <div id="controls" class="controlP">
-        <input type="text" id="myInput" name="text" autocomplete="off" placeholder="Type a word and press Enter"> 
-        <button id="restartButton" type="button">Restart</button>
-    </div>
-    <div id="hud" class="hud">
-        <div id="score" class="score">Tu Puntaje: <span id="currentScore">0</span></div>
-        <div id="lives" class="lives">Vidas: <span id="currentLives">3</span></div>
-    </div>
-    <div class="hint">Tip: remove words by typing them exactly and pressing Enter or Space.</div>
-    <div id="gameScreen" class="gameScreen">
-    </div>
+    <main class="appShell">
+        <header class="topBar">
+            <h1>TEXTWARS // Typing Shooter</h1>
+            <div class="badges">
+                <span class="badge">Wave <strong id="currentWave">1</strong></span>
+                <span class="badge">Combo <strong id="currentCombo">x1</strong></span>
+                <span class="badge">Score <strong id="currentScore">0</strong></span>
+                <span class="badge">Lives <strong id="currentLives">3</strong></span>
+            </div>
+        </header>
 
+        <section class="controls">
+            <input type="text" id="myInput" autocomplete="off" placeholder="Type enemy word + Enter / Space to shoot" />
+            <button id="restartButton" type="button">Restart Match</button>
+        </section>
+
+        <section id="gameScreen" class="gameScreen" aria-label="Typing battlefield">
+            <div class="scanlines"></div>
+            <div class="stars"></div>
+            <div id="wordLayer" class="wordLayer"></div>
+            <div id="fxLayer" class="fxLayer"></div>
+            <div id="cannon" class="cannon"></div>
+            <div id="gameOverPanel" class="gameOverPanel hidden">
+                <h2>Mission Failed</h2>
+                <p id="gameOverText">Press restart to deploy again.</p>
+            </div>
+        </section>
+
+        <p class="hint">Destroy incoming words by typing exact matches. Faster clears = bigger combo score.</p>
+    </main>
 </body>
+</html>

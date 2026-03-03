@@ -1,74 +1,215 @@
 :root {
-    --bg: #0b1020;
-    --panel: #101929;
-    --accent: #1ec8a5;
-    --danger: #c43636;
-    --text: #e8edf7;
+    --bg: #060a16;
+    --panel: #0d1529;
+    --panel-2: #121f3e;
+    --neon: #2ff5d2;
+    --danger: #ff5a73;
+    --warning: #ffc857;
+    --text: #e7efff;
+    --muted: #93a3c7;
 }
+
+* { box-sizing: border-box; }
 
 body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: radial-gradient(circle at top, #17233f, var(--bg));
-    color: var(--text);
     margin: 0;
-    padding: 16px;
+    min-height: 100vh;
+    background: radial-gradient(circle at 50% -20%, #1a2f5f 0%, var(--bg) 45%);
+    color: var(--text);
+    font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 
-.controlP {
+.appShell {
+    width: min(1200px, 96vw);
+    margin: 1.2rem auto;
+}
+
+.topBar {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.7rem;
+}
+
+h1 {
+    margin: 0;
+    font-size: clamp(1.1rem, 2vw, 1.45rem);
+    letter-spacing: 0.06em;
+}
+
+.badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.badge {
+    background: linear-gradient(145deg, rgba(28, 43, 81, 0.8), rgba(15, 25, 51, 0.8));
+    border: 1px solid rgba(118, 149, 217, 0.35);
+    border-radius: 999px;
+    padding: 0.35rem 0.72rem;
+    color: var(--muted);
+}
+
+.badge strong { color: var(--text); }
+
+.controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
 }
 
 #myInput {
-    flex: 1;
-    max-width: 420px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border: 1px solid #496083;
-    background: #dfe6f4;
+    width: 100%;
+    font-size: 1rem;
+    padding: 0.85rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid #3f5b8f;
+    background: #dce9ff;
+    color: #101a2f;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+#myInput:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(47, 245, 210, 0.22);
+}
+
+#myInput.inputMiss {
+    transform: translateX(4px);
+    box-shadow: 0 0 0 3px rgba(255, 90, 115, 0.22);
 }
 
 #restartButton {
-    border: none;
-    border-radius: 8px;
-    background: var(--accent);
-    color: #0f1a26;
-    padding: 10px 14px;
-    font-weight: bold;
+    border: 1px solid rgba(98, 255, 211, 0.5);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(145deg, #1de7c5, #14ac91);
+    color: #09231d;
+    font-weight: 700;
     cursor: pointer;
-}
-
-.hud {
-    display: flex;
-    gap: 24px;
-    margin-bottom: 8px;
-    font-size: 18px;
-}
-
-.hint {
-    margin-bottom: 10px;
-    color: #b8c5df;
-}
-
-.word {
-    position: absolute;
-    top: 40px;
-    border: 1px solid #ff7a7a;
-    background: rgba(255, 255, 255, 0.95);
-    color: #182030;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-weight: bold;
 }
 
 .gameScreen {
     position: relative;
     overflow: hidden;
-    border: 3px solid var(--accent);
-    border-radius: 10px;
-    background-color: var(--panel);
-    height: 600px;
-    width: 100%;
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.35);
+    height: min(68vh, 690px);
+    min-height: 430px;
+    border-radius: 14px;
+    border: 2px solid rgba(94, 138, 214, 0.52);
+    background:
+        radial-gradient(circle at 20% -5%, #1e305f 0%, transparent 35%),
+        radial-gradient(circle at 80% 0%, #25234f 0%, transparent 40%),
+        linear-gradient(180deg, var(--panel-2), var(--panel));
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 0 70px rgba(5, 10, 20, 0.8);
+}
+
+.scanlines,
+.stars,
+.wordLayer,
+.fxLayer {
+    position: absolute;
+    inset: 0;
+}
+
+.stars {
+    background-image:
+        radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.38) 0 1px, transparent 1.2px),
+        radial-gradient(circle at 70% 40%, rgba(255, 255, 255, 0.32) 0 1.2px, transparent 1.4px),
+        radial-gradient(circle at 40% 70%, rgba(255, 255, 255, 0.24) 0 1px, transparent 1.3px);
+    background-size: 240px 240px;
+    opacity: 0.45;
+}
+
+.scanlines {
+    pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 4px);
+    opacity: 0.2;
+}
+
+.word {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(255, 101, 124, 0.75);
+    background: linear-gradient(145deg, rgba(255,255,255,0.94), rgba(230,236,255,0.92));
+    color: #1e2645;
+    border-radius: 999px;
+    padding: 0.34rem 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.23);
+    will-change: transform;
+}
+
+.word.targeted {
+    box-shadow: 0 0 0 2px rgba(47,245,210,0.35), 0 0 18px rgba(47,245,210,0.4);
+}
+
+.cannon {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle at 30% 30%, #8ce8ff, #185080 62%, #0b2038 100%);
+    border: 1px solid rgba(157, 220, 255, 0.65);
+    box-shadow: 0 0 18px rgba(113, 232, 255, 0.45);
+}
+
+.laser {
+    position: absolute;
+    height: 3px;
+    transform-origin: left center;
+    background: linear-gradient(90deg, rgba(47,245,210,0.12), rgba(47,245,210,0.95), rgba(255,255,255,1));
+    box-shadow: 0 0 10px rgba(47, 245, 210, 0.75);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 70ms ease;
+}
+
+.explosion {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 200, 87, 0.9);
+    box-shadow: 0 0 20px rgba(255, 200, 87, 0.85);
+    animation: pop 260ms ease-out forwards;
+}
+
+@keyframes pop {
+    from { transform: translate(-50%, -50%) scale(0.25); opacity: 1; }
+    to { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+}
+
+.gameOverPanel {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background: rgba(5, 12, 24, 0.82);
+    border: 1px solid rgba(255, 90, 115, 0.5);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    min-width: min(92%, 380px);
+}
+
+.hidden { display: none; }
+
+.hint {
+    margin: 0.7rem 0 0;
+    color: var(--muted);
+}
+
+@media (max-width: 680px) {
+    .controls { grid-template-columns: 1fr; }
+    #restartButton { width: 100%; }
 }
