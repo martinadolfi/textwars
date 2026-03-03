@@ -7,6 +7,7 @@
     <script src="jquery-3.5.0.min.js"></script>
     <script src="wordList.js"></script>
     <script src="app.js" defer></script>
+    <script src="benchmark.js" defer></script>
     <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -25,6 +26,7 @@
         <section class="controls">
             <input type="text" id="myInput" autocomplete="off" placeholder="Type enemy word + Enter / Space to shoot" />
             <button id="restartButton" type="button">Restart Match</button>
+            <button id="benchmarkButton" type="button">⚡ Benchmark</button>
         </section>
 
         <section id="gameScreen" class="gameScreen" aria-label="Typing battlefield">
@@ -33,6 +35,14 @@
             <div id="wordLayer" class="wordLayer"></div>
             <div id="fxLayer" class="fxLayer"></div>
             <div id="cannon" class="cannon"></div>
+            <div id="benchmarkPanel" class="benchmarkPanel hidden">
+                <h2 class="bmTitle">⚡ AI Benchmark</h2>
+                <p class="bmSubtitle">Simulating TextWars gameplay — Claude Haiku vs GPT-4o</p>
+                <div id="bmProgress" class="bmProgress">
+                    <div id="bmProgressFill" class="bmProgressFill"></div>
+                </div>
+                <div id="bmResults" class="hidden"></div>
+            </div>
             <div id="gameOverPanel" class="gameOverPanel hidden">
                 <h2>Mission Failed</h2>
                 <p id="gameOverText">Press restart to deploy again.</p>

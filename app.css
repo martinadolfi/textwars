@@ -70,7 +70,7 @@ h1 {
 
 .controls {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
     gap: 0.6rem;
     margin-bottom: 0.8rem;
 }
@@ -344,7 +344,181 @@ h1 {
     color: var(--muted);
 }
 
+#benchmarkButton {
+    border: 1px solid rgba(224, 122, 95, 0.5);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(145deg, #e07a5f, #b05a3f);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* ── Benchmark panel ── */
+
+.benchmarkPanel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.2rem;
+    background: rgba(6, 10, 22, 0.92);
+    border-radius: 12px;
+    z-index: 10;
+    overflow-y: auto;
+}
+
+.bmTitle {
+    margin: 0 0 0.2rem;
+    font-size: 1.4rem;
+    letter-spacing: 0.08em;
+    color: var(--text);
+}
+
+.bmSubtitle {
+    margin: 0 0 1.2rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.bmProgress {
+    width: min(320px, 90%);
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 0.6rem;
+}
+
+.bmProgressFill {
+    height: 100%;
+    background: linear-gradient(90deg, #e07a5f, #3d90e3);
+    border-radius: 99px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.bmGrid {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    justify-content: center;
+}
+
+.bmVs {
+    color: var(--muted);
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+}
+
+.bmCard {
+    flex: 1;
+    max-width: 200px;
+    background: var(--panel-2);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 0.9rem 0.85rem;
+    position: relative;
+    text-align: center;
+    transition: border-color 0.2s;
+}
+
+.bmCardWinner {
+    border-color: var(--bot-color);
+    box-shadow: 0 0 18px rgba(255,255,255,0.08);
+}
+
+.bmCardName {
+    font-weight: 800;
+    font-size: 1rem;
+    margin-bottom: 0.1rem;
+}
+
+.bmCardLabel {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.3rem;
+}
+
+.bmCardTag {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 0.7rem;
+}
+
+.bmStats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem 0.5rem;
+    text-align: center;
+}
+
+.bmStat {
+    display: flex;
+    flex-direction: column;
+}
+
+.bmStatVal {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text);
+}
+
+.bmStatKey {
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.bmWinnerBadge {
+    margin-top: 0.7rem;
+    padding: 0.2rem 0.6rem;
+    background: var(--bot-color);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    border-radius: 999px;
+    display: inline-block;
+}
+
+.bmFootnote {
+    margin: 0.9rem 0 0.5rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.bmCloseBtn {
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.5rem 1.2rem;
+    background: transparent;
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.3rem;
+}
+
+.bmCloseBtn:hover {
+    background: rgba(255,255,255,0.07);
+}
+
 @media (max-width: 680px) {
-    .controls { grid-template-columns: 1fr; }
-    #restartButton { width: 100%; }
+    .controls { grid-template-columns: 1fr 1fr; }
+    #myInput { grid-column: 1 / -1; }
+    #restartButton, #benchmarkButton { width: 100%; }
+    .bmGrid { flex-direction: column; }
+    .bmVs { display: none; }
+    .bmCard { max-width: 100%; width: 100%; }
 }
