@@ -1,5 +1,11 @@
 const finishKeys = ["Enter", " "];
 const maxLives = 3;
+const comboMilestones = [
+    { threshold: 5, label: "Nice!" },
+    { threshold: 10, label: "Great!" },
+    { threshold: 20, label: "Amazing!" },
+    { threshold: 35, label: "UNSTOPPABLE!" }
+];
 
 const game = {
     running: false,
@@ -11,8 +17,9 @@ const game = {
     enemyId: 0,
     spawnTimerMs: 0,
     lastFrameTs: 0,
-    speedBoost: 0,
-    rafId: 0
+    rafId: 0,
+    highScore: 0,
+    highWave: 0
 };
 
 const dom = {
@@ -25,18 +32,46 @@ const dom = {
     score: null,
     lives: null,
     combo: null,
-    wave: null
+    wave: null,
+    highScore: null,
+    cannon: null
 };
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+function loadHighScore() {
+    try {
+        game.highScore = parseInt(localStorage.getItem("tw_highScore"), 10) || 0;
+        game.highWave = parseInt(localStorage.getItem("tw_highWave"), 10) || 0;
+    } catch (_) {
+        game.highScore = 0;
+        game.highWave = 0;
+    }
+}
+
+function saveHighScore() {
+    const isNew = game.score > game.highScore;
+    if (isNew) game.highScore = game.score;
+    if (game.wave > game.highWave) game.highWave = game.wave;
+    try {
+        localStorage.setItem("tw_highScore", game.highScore);
+        localStorage.setItem("tw_highWave", game.highWave);
+    } catch (_) { /* storage full or unavailable */ }
+    return isNew;
+}
+
+function heartsString(count) {
+    return "\u2764".repeat(Math.max(0, count)) + "\u2661".repeat(Math.max(0, maxLives - count));
+}
+
 function updateHud() {
     dom.score.text(game.score);
-    dom.lives.text(game.lives);
+    dom.lives.html(heartsString(game.lives));
     dom.combo.text(`x${Math.max(1, game.combo)}`);
     dom.wave.text(game.wave);
+    dom.highScore.text(game.highScore);
 }
 
 function screenSize() {
@@ -47,7 +82,14 @@ function screenSize() {
 }
 
 function randomWord() {
-    return wordList[Math.floor(Math.random() * wordList.length)];
+    const activeWords = new Set(game.enemies.map((e) => e.word));
+    let word;
+    let attempts = 0;
+    do {
+        word = wordList[Math.floor(Math.random() * wordList.length)];
+        attempts++;
+    } while (activeWords.has(word) && attempts < 30);
+    return word;
 }
 
 function currentSpawnIntervalMs() {
@@ -80,13 +122,43 @@ function removeEnemy(enemy) {
     game.enemies = game.enemies.filter((item) => item.id !== enemy.id);
 }
 
+function shakeScreen() {
+    dom.gameScreen.addClass("screenShake");
+    setTimeout(() => dom.gameScreen.removeClass("screenShake"), 300);
+}
+
 function loseLife() {
     game.lives -= 1;
+    shakeScreen();
     updateHud();
 
     if (game.lives <= 0) {
         stopGame();
     }
+}
+
+function cannonRecoil() {
+    dom.cannon.addClass("cannonFire");
+    setTimeout(() => dom.cannon.removeClass("cannonFire"), 180);
+}
+
+function showScorePopup(x, y, points) {
+    const popup = $('<div class="scorePopup"></div>').text(`+${points}`);
+    popup.css({ left: `${x}px`, top: `${y}px` });
+    dom.fxLayer.append(popup);
+    setTimeout(() => popup.remove(), 600);
+}
+
+function showComboMilestone(label) {
+    const el = $('<div class="comboMilestone"></div>').text(label);
+    dom.fxLayer.append(el);
+    setTimeout(() => el.remove(), 900);
+}
+
+function showWaveAnnouncement(waveNum) {
+    const el = $('<div class="waveAnnounce"></div>').text(`Wave ${waveNum}`);
+    dom.fxLayer.append(el);
+    setTimeout(() => el.remove(), 1200);
 }
 
 function fireLaser(enemy) {
@@ -110,6 +182,7 @@ function fireLaser(enemy) {
     });
 
     dom.fxLayer.append(laser);
+    cannonRecoil();
     requestAnimationFrame(() => laser.css("opacity", 1));
 
     setTimeout(() => {
@@ -123,10 +196,31 @@ function fireLaser(enemy) {
     setTimeout(() => blast.remove(), 300);
 }
 
-function rewardHit(wordLength) {
+function rewardHit(enemy) {
     game.combo += 1;
-    game.score += Math.round(wordLength * (1 + game.combo * 0.15));
+    const points = Math.round(enemy.word.length * (1 + game.combo * 0.15));
+    game.score += points;
+    const oldWave = game.wave;
     game.wave = Math.max(1, Math.floor(game.score / 120) + 1);
+
+    showScorePopup(enemy.x, enemy.y - 20, points);
+
+    if (game.wave > oldWave) {
+        showWaveAnnouncement(game.wave);
+    }
+
+    for (let i = comboMilestones.length - 1; i >= 0; i--) {
+        if (game.combo === comboMilestones[i].threshold) {
+            showComboMilestone(comboMilestones[i].label);
+            break;
+        }
+    }
+
+    if (game.combo > 1) {
+        dom.combo.parent().addClass("comboPulse");
+        setTimeout(() => dom.combo.parent().removeClass("comboPulse"), 300);
+    }
+
     updateHud();
 }
 
@@ -136,6 +230,17 @@ function penalizeMiss() {
     dom.input.addClass("inputMiss");
     setTimeout(() => dom.input.removeClass("inputMiss"), 130);
     updateHud();
+}
+
+function highlightMatches() {
+    const typed = dom.input.val().trim().toLowerCase();
+    game.enemies.forEach((enemy) => {
+        if (typed && enemy.word.startsWith(typed)) {
+            enemy.el.addClass("matching");
+        } else {
+            enemy.el.removeClass("matching");
+        }
+    });
 }
 
 function submitShot() {
@@ -155,7 +260,7 @@ function submitShot() {
 
     target.el.addClass("targeted");
     fireLaser(target);
-    rewardHit(target.word.length);
+    rewardHit(target);
 
     setTimeout(() => {
         removeEnemy(target);
@@ -166,7 +271,13 @@ function stopGame() {
     game.running = false;
     cancelAnimationFrame(game.rafId);
     dom.input.prop("disabled", true);
-    dom.gameOverText.text(`Final score: ${game.score} · Wave reached: ${game.wave}`);
+
+    const isNewHigh = saveHighScore();
+    let text = `Final score: ${game.score} \u00b7 Wave reached: ${game.wave}`;
+    if (isNewHigh) {
+        text += " \u00b7 NEW HIGH SCORE!";
+    }
+    dom.gameOverText.text(text);
     dom.gameOverPanel.removeClass("hidden");
 }
 
@@ -195,10 +306,15 @@ function gameLoop(timestamp) {
 
     const size = screenSize();
     const bottomLimit = size.height - 36;
+    const dangerZone = bottomLimit - 80;
 
     game.enemies.slice().forEach((enemy) => {
         enemy.y += enemy.speed * dt;
         enemy.el.css({ top: `${enemy.y}px` });
+
+        if (enemy.y >= dangerZone) {
+            enemy.el.addClass("danger");
+        }
 
         if (enemy.y >= bottomLimit) {
             removeEnemy(enemy);
@@ -210,24 +326,55 @@ function gameLoop(timestamp) {
     game.rafId = requestAnimationFrame(gameLoop);
 }
 
+function startCountdown(callback) {
+    dom.input.prop("disabled", true);
+    let count = 3;
+    const el = $('<div class="countdown"></div>').text(count);
+    dom.fxLayer.append(el);
+
+    const tick = setInterval(() => {
+        count--;
+        if (count > 0) {
+            el.text(count);
+            el.removeClass("countdownPop");
+            void el[0].offsetWidth;
+            el.addClass("countdownPop");
+        } else {
+            clearInterval(tick);
+            el.text("GO!");
+            setTimeout(() => {
+                el.remove();
+                callback();
+            }, 400);
+        }
+    }, 700);
+
+    el.addClass("countdownPop");
+}
+
 function resetGame() {
     cancelAnimationFrame(game.rafId);
     clearAllEnemies();
+    dom.fxLayer.empty();
 
-    game.running = true;
     game.score = 0;
     game.lives = maxLives;
     game.combo = 0;
     game.wave = 1;
     game.spawnTimerMs = 0;
     game.lastFrameTs = 0;
+    game.running = false;
 
     updateHud();
-    dom.input.prop("disabled", false).focus().val("");
+    dom.input.val("");
     dom.gameOverPanel.addClass("hidden");
 
-    spawnEnemy();
-    game.rafId = requestAnimationFrame(gameLoop);
+    startCountdown(() => {
+        game.running = true;
+        dom.input.prop("disabled", false).focus();
+        spawnEnemy();
+        game.rafId = requestAnimationFrame(gameLoop);
+    });
 }
 
 $(function () {
@@ -241,6 +388,10 @@ $(function () {
     dom.lives = $("#currentLives");
     dom.combo = $("#currentCombo");
     dom.wave = $("#currentWave");
+    dom.highScore = $("#currentHighScore");
+    dom.cannon = $("#cannon");
+
+    loadHighScore();
 
     dom.input.on("keydown", (event) => {
         if (finishKeys.includes(event.key)) {
@@ -248,6 +399,8 @@ $(function () {
             submitShot();
         }
     });
+
+    dom.input.on("input", highlightMatches);
 
     $("#restartButton").on("click", resetGame);
 

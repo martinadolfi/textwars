@@ -51,9 +51,22 @@ h1 {
     border-radius: 999px;
     padding: 0.35rem 0.72rem;
     color: var(--muted);
+    transition: transform 150ms ease;
 }
 
 .badge strong { color: var(--text); }
+
+.badgeLives strong { color: var(--danger); letter-spacing: 0.1em; }
+
+.badgeHigh {
+    border-color: rgba(255, 200, 87, 0.4);
+}
+
+.badgeHigh strong { color: var(--warning); }
+
+.badge.comboPulse {
+    transform: scale(1.18);
+}
 
 .controls {
     display: grid;
@@ -105,6 +118,21 @@ h1 {
         radial-gradient(circle at 80% 0%, #25234f 0%, transparent 40%),
         linear-gradient(180deg, var(--panel-2), var(--panel));
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 0 70px rgba(5, 10, 20, 0.8);
+    transition: transform 50ms ease;
+}
+
+.gameScreen.screenShake {
+    animation: shake 300ms ease-out;
+}
+
+@keyframes shake {
+    0%   { transform: translateX(0); }
+    15%  { transform: translateX(-6px); }
+    30%  { transform: translateX(5px); }
+    45%  { transform: translateX(-4px); }
+    60%  { transform: translateX(3px); }
+    75%  { transform: translateX(-1px); }
+    100% { transform: translateX(0); }
 }
 
 .scanlines,
@@ -144,10 +172,26 @@ h1 {
     letter-spacing: 0.01em;
     box-shadow: 0 6px 12px rgba(0,0,0,0.23);
     will-change: transform;
+    transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.word.matching {
+    border-color: var(--neon);
+    box-shadow: 0 0 0 2px rgba(47, 245, 210, 0.25), 0 0 12px rgba(47, 245, 210, 0.2);
 }
 
 .word.targeted {
     box-shadow: 0 0 0 2px rgba(47,245,210,0.35), 0 0 18px rgba(47,245,210,0.4);
+}
+
+.word.danger {
+    border-color: var(--danger);
+    animation: wordPulse 400ms ease-in-out infinite alternate;
+}
+
+@keyframes wordPulse {
+    from { box-shadow: 0 0 6px rgba(255, 90, 115, 0.3); }
+    to   { box-shadow: 0 0 14px rgba(255, 90, 115, 0.7); }
 }
 
 .cannon {
@@ -161,6 +205,12 @@ h1 {
     background: radial-gradient(circle at 30% 30%, #8ce8ff, #185080 62%, #0b2038 100%);
     border: 1px solid rgba(157, 220, 255, 0.65);
     box-shadow: 0 0 18px rgba(113, 232, 255, 0.45);
+    transition: transform 100ms ease, box-shadow 100ms ease;
+}
+
+.cannon.cannonFire {
+    transform: translateX(-50%) scale(0.88);
+    box-shadow: 0 0 32px rgba(47, 245, 210, 0.8);
 }
 
 .laser {
@@ -187,6 +237,91 @@ h1 {
 @keyframes pop {
     from { transform: translate(-50%, -50%) scale(0.25); opacity: 1; }
     to { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+}
+
+/* Score popup that floats up from hit location */
+.scorePopup {
+    position: absolute;
+    transform: translate(-50%, 0);
+    color: var(--neon);
+    font-weight: 800;
+    font-size: 1.1rem;
+    text-shadow: 0 0 8px rgba(47, 245, 210, 0.6);
+    pointer-events: none;
+    animation: floatUp 600ms ease-out forwards;
+}
+
+@keyframes floatUp {
+    from { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    to   { opacity: 0; transform: translate(-50%, -40px) scale(1.3); }
+}
+
+/* Combo milestone text (Nice!, Amazing!, etc.) */
+.comboMilestone {
+    position: absolute;
+    left: 50%;
+    top: 38%;
+    transform: translate(-50%, -50%);
+    color: var(--warning);
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 16px rgba(255, 200, 87, 0.7);
+    pointer-events: none;
+    animation: milestoneIn 900ms ease-out forwards;
+}
+
+@keyframes milestoneIn {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    40%  { transform: translate(-50%, -50%) scale(1); }
+    80%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+}
+
+/* Wave announcement */
+.waveAnnounce {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%, -50%);
+    color: var(--text);
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 20px rgba(47, 245, 210, 0.5);
+    pointer-events: none;
+    animation: waveIn 1200ms ease-out forwards;
+}
+
+@keyframes waveIn {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(2); }
+    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    70%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Countdown before game start */
+.countdown {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%, -50%);
+    color: var(--neon);
+    font-size: 3.5rem;
+    font-weight: 900;
+    text-shadow: 0 0 30px rgba(47, 245, 210, 0.6);
+    pointer-events: none;
+}
+
+.countdown.countdownPop {
+    animation: countPop 650ms ease-out;
+}
+
+@keyframes countPop {
+    0%   { transform: translate(-50%, -50%) scale(1.6); opacity: 0.5; }
+    30%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.7; }
 }
 
 .gameOverPanel {
