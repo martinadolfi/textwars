@@ -1,410 +1,754 @@
-const finishKeys = ["Enter", " "];
-const maxLives = 3;
-const comboMilestones = [
-    { threshold: 5, label: "Nice!" },
-    { threshold: 10, label: "Great!" },
-    { threshold: 20, label: "Amazing!" },
-    { threshold: 35, label: "UNSTOPPABLE!" }
-];
+(function () {
+    "use strict";
 
-const game = {
-    running: false,
-    score: 0,
-    lives: maxLives,
-    combo: 0,
-    wave: 1,
-    enemies: [],
-    enemyId: 0,
-    spawnTimerMs: 0,
-    lastFrameTs: 0,
-    rafId: 0,
-    highScore: 0,
-    highWave: 0
-};
+    const Core = window.TextWarsCore;
+    const PROFILE_KEY = "textwars_profile_v2";
+    const RECENT_WORD_LIMIT = 12;
+    const DANGER_DISTANCE = 125;
 
-const dom = {
-    gameScreen: null,
-    wordLayer: null,
-    fxLayer: null,
-    input: null,
-    gameOverPanel: null,
-    gameOverText: null,
-    score: null,
-    lives: null,
-    combo: null,
-    wave: null,
-    highScore: null,
-    cannon: null
-};
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
-function loadHighScore() {
-    try {
-        game.highScore = parseInt(localStorage.getItem("tw_highScore"), 10) || 0;
-        game.highWave = parseInt(localStorage.getItem("tw_highWave"), 10) || 0;
-    } catch (_) {
-        game.highScore = 0;
-        game.highWave = 0;
-    }
-}
-
-function saveHighScore() {
-    const isNew = game.score > game.highScore;
-    if (isNew) game.highScore = game.score;
-    if (game.wave > game.highWave) game.highWave = game.wave;
-    try {
-        localStorage.setItem("tw_highScore", game.highScore);
-        localStorage.setItem("tw_highWave", game.highWave);
-    } catch (_) { /* storage full or unavailable */ }
-    return isNew;
-}
-
-function heartsString(count) {
-    return "\u2764".repeat(Math.max(0, count)) + "\u2661".repeat(Math.max(0, maxLives - count));
-}
-
-function updateHud() {
-    dom.score.text(game.score);
-    dom.lives.html(heartsString(game.lives));
-    dom.combo.text(`x${Math.max(1, game.combo)}`);
-    dom.wave.text(game.wave);
-    dom.highScore.text(game.highScore);
-}
-
-function screenSize() {
-    return {
-        width: dom.gameScreen.width(),
-        height: dom.gameScreen.height()
-    };
-}
-
-function randomWord() {
-    const activeWords = new Set(game.enemies.map((e) => e.word));
-    let word;
-    let attempts = 0;
-    do {
-        word = wordList[Math.floor(Math.random() * wordList.length)];
-        attempts++;
-    } while (activeWords.has(word) && attempts < 30);
-    return word;
-}
-
-function currentSpawnIntervalMs() {
-    return clamp(1200 - game.wave * 80 - game.combo * 12, 260, 1200);
-}
-
-function currentFallSpeed() {
-    return 40 + game.wave * 11 + game.combo * 1.2;
-}
-
-function spawnEnemy() {
-    const size = screenSize();
-    const enemy = {
-        id: game.enemyId++,
-        word: randomWord(),
-        x: 70 + Math.random() * (size.width - 140),
-        y: 45,
-        speed: currentFallSpeed() + Math.random() * 16
-    };
-
-    enemy.el = $('<div class="word"></div>').text(enemy.word);
-    dom.wordLayer.append(enemy.el);
-    enemy.el.css({ left: `${enemy.x}px`, top: `${enemy.y}px` });
-
-    game.enemies.push(enemy);
-}
-
-function removeEnemy(enemy) {
-    enemy.el.remove();
-    game.enemies = game.enemies.filter((item) => item.id !== enemy.id);
-}
-
-function shakeScreen() {
-    dom.gameScreen.addClass("screenShake");
-    setTimeout(() => dom.gameScreen.removeClass("screenShake"), 300);
-}
-
-function loseLife() {
-    game.lives -= 1;
-    shakeScreen();
-    updateHud();
-
-    if (game.lives <= 0) {
-        stopGame();
-    }
-}
-
-function cannonRecoil() {
-    dom.cannon.addClass("cannonFire");
-    setTimeout(() => dom.cannon.removeClass("cannonFire"), 180);
-}
-
-function showScorePopup(x, y, points) {
-    const popup = $('<div class="scorePopup"></div>').text(`+${points}`);
-    popup.css({ left: `${x}px`, top: `${y}px` });
-    dom.fxLayer.append(popup);
-    setTimeout(() => popup.remove(), 600);
-}
-
-function showComboMilestone(label) {
-    const el = $('<div class="comboMilestone"></div>').text(label);
-    dom.fxLayer.append(el);
-    setTimeout(() => el.remove(), 900);
-}
-
-function showWaveAnnouncement(waveNum) {
-    const el = $('<div class="waveAnnounce"></div>').text(`Wave ${waveNum}`);
-    dom.fxLayer.append(el);
-    setTimeout(() => el.remove(), 1200);
-}
-
-function fireLaser(enemy) {
-    const size = screenSize();
-    const sx = size.width / 2;
-    const sy = size.height - 30;
-    const ex = enemy.x;
-    const ey = enemy.y;
-
-    const dx = ex - sx;
-    const dy = ey - sy;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-    const laser = $('<div class="laser"></div>');
-    laser.css({
-        left: `${sx}px`,
-        top: `${sy}px`,
-        width: `${distance}px`,
-        transform: `rotate(${angle}deg)`
+    const defaultRecord = () => ({ score: 0, wave: 1, combo: 0 });
+    const defaultProfile = () => ({
+        sound: true,
+        language: (navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en",
+        mode: "ace",
+        records: {
+            cadet: defaultRecord(),
+            ace: defaultRecord(),
+            onslaught: defaultRecord()
+        }
     });
 
-    dom.fxLayer.append(laser);
-    cannonRecoil();
-    requestAnimationFrame(() => laser.css("opacity", 1));
+    const game = {
+        phase: "briefing",
+        score: 0,
+        lives: 3,
+        combo: 0,
+        bestCombo: 0,
+        wave: 1,
+        hits: 0,
+        misses: 0,
+        breaches: 0,
+        enemies: [],
+        enemyId: 0,
+        recentWords: [],
+        spawnTimerMs: 0,
+        lastFrameTs: 0,
+        rafId: 0,
+        countdownToken: 0,
+        timers: new Set(),
+        profile: defaultProfile()
+    };
 
-    setTimeout(() => {
-        laser.css("opacity", 0);
-        setTimeout(() => laser.remove(), 100);
-    }, 70);
+    const dom = {};
 
-    const blast = $('<div class="explosion"></div>');
-    blast.css({ left: `${ex}px`, top: `${ey}px` });
-    dom.fxLayer.append(blast);
-    setTimeout(() => blast.remove(), 300);
-}
-
-function rewardHit(enemy) {
-    game.combo += 1;
-    const points = Math.round(enemy.word.length * (1 + game.combo * 0.15));
-    game.score += points;
-    const oldWave = game.wave;
-    game.wave = Math.max(1, Math.floor(game.score / 120) + 1);
-
-    showScorePopup(enemy.x, enemy.y - 20, points);
-
-    if (game.wave > oldWave) {
-        showWaveAnnouncement(game.wave);
+    function $(id) {
+        return document.getElementById(id);
     }
 
-    for (let i = comboMilestones.length - 1; i >= 0; i--) {
-        if (game.combo === comboMilestones[i].threshold) {
-            showComboMilestone(comboMilestones[i].label);
-            break;
+    function cacheDom() {
+        [
+            "gameScreen", "wordLayer", "fxLayer", "cannon", "briefingPanel", "pausePanel",
+            "gameOverPanel", "gameOverTitle", "myInput", "commandDock", "lockStatus",
+            "fireButton", "startButton", "restartButton", "resumeButton", "quitButton",
+            "briefingButton", "pauseButton", "pauseIcon", "soundButton", "soundIcon",
+            "languageButton", "languageLabel", "currentScore", "currentWave", "currentCombo",
+            "currentLives", "currentHighScore", "sectorProgressFill", "currentAccuracy",
+            "currentHits", "bestCombo", "finalScore", "finalWave", "finalAccuracy",
+            "finalCombo", "finalHits", "newRecord", "liveAnnouncer"
+        ].forEach((id) => { dom[id] = $(id); });
+        dom.modeButtons = Array.from(document.querySelectorAll(".modeCard"));
+        dom.cannonBarrel = document.querySelector(".cannonBarrel");
+    }
+
+    function loadProfile() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+            if (saved && typeof saved === "object") {
+                game.profile = {
+                    ...defaultProfile(),
+                    ...saved,
+                    records: {
+                        ...defaultProfile().records,
+                        ...(saved.records || {})
+                    }
+                };
+            }
+
+            const legacyScore = Number(localStorage.getItem("tw_highScore")) || 0;
+            const legacyWave = Number(localStorage.getItem("tw_highWave")) || 1;
+            if (legacyScore > game.profile.records.ace.score) {
+                game.profile.records.ace.score = legacyScore;
+                game.profile.records.ace.wave = legacyWave;
+            }
+        } catch (_) {
+            game.profile = defaultProfile();
         }
     }
 
-    if (game.combo > 1) {
-        dom.combo.parent().addClass("comboPulse");
-        setTimeout(() => dom.combo.parent().removeClass("comboPulse"), 300);
-    }
-
-    updateHud();
-}
-
-function penalizeMiss() {
-    game.combo = 0;
-    game.score = Math.max(0, game.score - 3);
-    dom.input.addClass("inputMiss");
-    setTimeout(() => dom.input.removeClass("inputMiss"), 130);
-    updateHud();
-}
-
-function highlightMatches() {
-    const typed = dom.input.val().trim().toLowerCase();
-    game.enemies.forEach((enemy) => {
-        if (typed && enemy.word.startsWith(typed)) {
-            enemy.el.addClass("matching");
-        } else {
-            enemy.el.removeClass("matching");
+    function saveProfile() {
+        try {
+            localStorage.setItem(PROFILE_KEY, JSON.stringify(game.profile));
+        } catch (_) {
+            // The game remains fully playable when storage is unavailable.
         }
-    });
-}
-
-function submitShot() {
-    const typed = dom.input.val().trim().toLowerCase();
-    dom.input.val("");
-
-    if (!typed || !game.running) {
-        return;
     }
 
-    const target = game.enemies.find((enemy) => enemy.word === typed);
+    class SoundEngine {
+        constructor() {
+            this.context = null;
+        }
 
-    if (!target) {
-        penalizeMiss();
-        return;
+        ensureContext() {
+            if (!game.profile.sound) return null;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return null;
+            if (!this.context) this.context = new AudioContext();
+            if (this.context.state === "suspended") this.context.resume();
+            return this.context;
+        }
+
+        tone(startFrequency, endFrequency, duration, volume, type, delay) {
+            const context = this.ensureContext();
+            if (!context) return;
+            const now = context.currentTime + (delay || 0);
+            const oscillator = context.createOscillator();
+            const gain = context.createGain();
+            oscillator.type = type || "sine";
+            oscillator.frequency.setValueAtTime(startFrequency, now);
+            oscillator.frequency.exponentialRampToValueAtTime(Math.max(30, endFrequency), now + duration);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+            oscillator.connect(gain).connect(context.destination);
+            oscillator.start(now);
+            oscillator.stop(now + duration + 0.02);
+        }
+
+        fire() { this.tone(180, 860, 0.09, 0.09, "sawtooth"); }
+        hit() {
+            this.tone(480, 920, 0.12, 0.07, "triangle");
+            this.tone(720, 1180, 0.11, 0.04, "sine", 0.045);
+        }
+        miss() { this.tone(150, 70, 0.2, 0.07, "square"); }
+        breach() { this.tone(120, 42, 0.42, 0.11, "sawtooth"); }
+        wave() {
+            [330, 440, 660].forEach((frequency, index) => this.tone(frequency, frequency * 1.01, 0.2, 0.055, "triangle", index * 0.1));
+        }
+        deploy() {
+            [220, 330, 495].forEach((frequency, index) => this.tone(frequency, frequency * 1.03, 0.16, 0.05, "triangle", index * 0.08));
+        }
     }
 
-    target.el.addClass("targeted");
-    fireLaser(target);
-    rewardHit(target);
+    const sound = new SoundEngine();
 
-    setTimeout(() => {
-        removeEnemy(target);
-    }, 70);
-}
-
-function stopGame() {
-    game.running = false;
-    cancelAnimationFrame(game.rafId);
-    dom.input.prop("disabled", true);
-
-    const isNewHigh = saveHighScore();
-    let text = `Final score: ${game.score} \u00b7 Wave reached: ${game.wave}`;
-    if (isNewHigh) {
-        text += " \u00b7 NEW HIGH SCORE!";
-    }
-    dom.gameOverText.text(text);
-    dom.gameOverPanel.removeClass("hidden");
-}
-
-function clearAllEnemies() {
-    game.enemies.forEach((enemy) => enemy.el.remove());
-    game.enemies = [];
-}
-
-function gameLoop(timestamp) {
-    if (!game.running) {
-        return;
+    function setTimer(callback, delay) {
+        const timer = window.setTimeout(() => {
+            game.timers.delete(timer);
+            callback();
+        }, delay);
+        game.timers.add(timer);
+        return timer;
     }
 
-    if (!game.lastFrameTs) {
-        game.lastFrameTs = timestamp;
+    function clearTimers() {
+        game.timers.forEach((timer) => window.clearTimeout(timer));
+        game.timers.clear();
     }
 
-    const dt = Math.min((timestamp - game.lastFrameTs) / 1000, 0.033);
-    game.lastFrameTs = timestamp;
+    function formatScore(score) {
+        return String(Math.max(0, Math.round(score))).padStart(6, "0");
+    }
 
-    game.spawnTimerMs += dt * 1000;
-    if (game.spawnTimerMs >= currentSpawnIntervalMs()) {
+    function announce(message) {
+        dom.liveAnnouncer.textContent = "";
+        window.requestAnimationFrame(() => { dom.liveAnnouncer.textContent = message; });
+    }
+
+    function activeRecord() {
+        return game.profile.records[game.profile.mode] || defaultRecord();
+    }
+
+    function updateHud() {
+        const mode = Core.getMode(game.profile.mode);
+        const multiplier = Core.getMultiplier(game.combo);
+        const record = activeRecord();
+        const accuracy = Core.calculateAccuracy(game.hits, game.misses);
+        const full = "◆".repeat(Math.max(0, game.lives));
+        const empty = "◇".repeat(Math.max(0, mode.lives - game.lives));
+
+        dom.currentScore.textContent = formatScore(game.score);
+        dom.currentWave.textContent = String(game.wave).padStart(2, "0");
+        dom.currentCombo.textContent = `×${multiplier}`;
+        dom.currentCombo.classList.toggle("hot", multiplier > 1);
+        dom.currentLives.textContent = full + empty;
+        dom.currentLives.setAttribute("aria-label", `${game.lives} shield${game.lives === 1 ? "" : "s"} remaining`);
+        dom.currentHighScore.textContent = formatScore(record.score);
+        dom.sectorProgressFill.style.transform = `scaleX(${Core.getWaveProgress(game.score)})`;
+        dom.currentAccuracy.textContent = game.hits + game.misses ? `${accuracy}%` : "—";
+        dom.currentHits.textContent = String(game.hits);
+        dom.bestCombo.textContent = String(Math.max(game.bestCombo, record.combo || 0));
+    }
+
+    function updatePreferencesUi() {
+        dom.languageLabel.textContent = game.profile.language.toUpperCase();
+        dom.soundButton.setAttribute("aria-pressed", String(game.profile.sound));
+        dom.soundButton.setAttribute("aria-label", game.profile.sound ? "Mute sound" : "Enable sound");
+        dom.soundIcon.textContent = game.profile.sound ? "◖))" : "◖×";
+        dom.myInput.placeholder = game.profile.language === "es" ? "ESCRIBE EL CÓDIGO ENEMIGO…" : "TYPE ENEMY CODEWORD…";
+        dom.modeButtons.forEach((button) => {
+            const selected = button.dataset.mode === game.profile.mode;
+            button.classList.toggle("selected", selected);
+            button.setAttribute("aria-pressed", String(selected));
+        });
+    }
+
+    function setCommandEnabled(enabled) {
+        dom.myInput.disabled = !enabled;
+        dom.fireButton.disabled = !enabled;
+        dom.commandDock.classList.toggle("disabled", !enabled);
+        if (!enabled) {
+            dom.myInput.value = "";
+            dom.lockStatus.textContent = "SCANNING";
+            dom.lockStatus.className = "lockStatus";
+        }
+    }
+
+    function clearBattlefield() {
+        game.enemies.forEach((enemy) => enemy.el.remove());
+        game.enemies = [];
+        dom.wordLayer.replaceChildren();
+        dom.fxLayer.replaceChildren();
+        dom.gameScreen.classList.remove("screenShake", "damageFlash", "waveFlash");
+        aimCannon(null);
+    }
+
+    function showBriefing() {
+        game.phase = "briefing";
+        game.countdownToken += 1;
+        cancelAnimationFrame(game.rafId);
+        clearTimers();
+        clearBattlefield();
+        resetRunState();
+        setCommandEnabled(false);
+        dom.briefingPanel.classList.remove("hidden");
+        dom.pausePanel.classList.add("hidden");
+        dom.gameOverPanel.classList.add("hidden");
+        dom.pauseButton.disabled = true;
+        dom.pauseIcon.textContent = "Ⅱ";
+        updateHud();
+        dom.startButton.focus({ preventScroll: true });
+    }
+
+    function resetRunState() {
+        const mode = Core.getMode(game.profile.mode);
+        game.score = 0;
+        game.lives = mode.lives;
+        game.combo = 0;
+        game.bestCombo = 0;
+        game.wave = 1;
+        game.hits = 0;
+        game.misses = 0;
+        game.breaches = 0;
+        game.enemies = [];
+        game.recentWords = [];
         game.spawnTimerMs = 0;
-        spawnEnemy();
+        game.lastFrameTs = 0;
     }
 
-    const size = screenSize();
-    const bottomLimit = size.height - 36;
-    const dangerZone = bottomLimit - 80;
+    function beginCountdown() {
+        const token = ++game.countdownToken;
+        const countdown = document.createElement("div");
+        countdown.className = "countdown";
+        dom.fxLayer.append(countdown);
+        const sequence = ["3", "2", "1", "ENGAGE"];
+        let step = 0;
 
-    game.enemies.slice().forEach((enemy) => {
-        enemy.y += enemy.speed * dt;
-        enemy.el.css({ top: `${enemy.y}px` });
-
-        if (enemy.y >= dangerZone) {
-            enemy.el.addClass("danger");
+        function tick() {
+            if (token !== game.countdownToken || game.phase !== "countdown") return;
+            countdown.textContent = sequence[step];
+            countdown.classList.remove("countdownPop");
+            void countdown.offsetWidth;
+            countdown.classList.add("countdownPop");
+            if (step < sequence.length - 1) {
+                step += 1;
+                setTimer(tick, 620);
+            } else {
+                setTimer(() => {
+                    if (token !== game.countdownToken || game.phase !== "countdown") return;
+                    countdown.remove();
+                    game.phase = "playing";
+                    setCommandEnabled(true);
+                    dom.pauseButton.disabled = false;
+                    spawnEnemy();
+                    dom.myInput.focus({ preventScroll: true });
+                    game.rafId = requestAnimationFrame(gameLoop);
+                    announce("Mission started. Type the incoming codewords.");
+                }, 440);
+            }
         }
 
-        if (enemy.y >= bottomLimit) {
-            removeEnemy(enemy);
-            game.combo = 0;
-            loseLife();
+        tick();
+    }
+
+    function startGame() {
+        game.countdownToken += 1;
+        cancelAnimationFrame(game.rafId);
+        clearTimers();
+        clearBattlefield();
+        resetRunState();
+        game.phase = "countdown";
+        dom.briefingPanel.classList.add("hidden");
+        dom.pausePanel.classList.add("hidden");
+        dom.gameOverPanel.classList.add("hidden");
+        dom.newRecord.classList.add("hidden");
+        setCommandEnabled(false);
+        updateHud();
+        sound.deploy();
+        beginCountdown();
+    }
+
+    function wordPool() {
+        if (window.textWarsWords) return window.textWarsWords[game.profile.language];
+        return game.profile.language === "es" ? window.wordListEs : window.wordListEn;
+    }
+
+    function chooseLane() {
+        const width = dom.gameScreen.clientWidth;
+        const laneCount = Core.clamp(Math.floor(width / 126), 4, 9);
+        const occupied = new Set(game.enemies.filter((enemy) => enemy.y < 150).map((enemy) => enemy.lane));
+        let available = Array.from({ length: laneCount }, (_, index) => index).filter((lane) => !occupied.has(lane));
+        if (!available.length) available = Array.from({ length: laneCount }, (_, index) => index);
+        const lane = available[Math.floor(Math.random() * available.length)];
+        return { lane, x: ((lane + 0.5) / laneCount) * 100 };
+    }
+
+    function createEnemyElement(enemy) {
+        const el = document.createElement("div");
+        el.className = "wordEnemy entering";
+        el.dataset.id = String(enemy.id);
+        el.style.left = `${enemy.x}%`;
+        el.style.setProperty("--enemy-y", `${enemy.y}px`);
+        const serial = document.createElement("small");
+        serial.textContent = `SIGNAL ${String(enemy.id + 1).padStart(4, "0")}`;
+        const name = document.createElement("span");
+        name.className = "wordName";
+        el.append(serial, name);
+        enemy.nameEl = name;
+        enemy.el = el;
+        renderEnemyWord(enemy, 0);
+        dom.wordLayer.append(el);
+        requestAnimationFrame(() => el.classList.remove("entering"));
+    }
+
+    function renderEnemyWord(enemy, typedLength) {
+        enemy.nameEl.replaceChildren();
+        const matched = document.createElement("b");
+        matched.textContent = enemy.word.slice(0, typedLength);
+        const remaining = document.createTextNode(enemy.word.slice(typedLength));
+        enemy.nameEl.append(matched, remaining);
+    }
+
+    function spawnEnemy() {
+        if (game.phase !== "playing") return;
+        const position = chooseLane();
+        const word = Core.chooseWord(wordPool(), {
+            wave: game.wave,
+            modeId: game.profile.mode,
+            activeWords: game.enemies.map((enemy) => enemy.word),
+            recentWords: game.recentWords,
+            random: Math.random
+        });
+        const enemy = {
+            id: game.enemyId++,
+            word,
+            lane: position.lane,
+            x: position.x,
+            y: 74,
+            speed: Core.getFallSpeed(game.profile.mode, game.wave, game.combo, Math.random() * 12 - 3),
+            danger: false,
+            destroyed: false,
+            el: null,
+            nameEl: null
+        };
+        game.recentWords.push(word);
+        if (game.recentWords.length > RECENT_WORD_LIMIT) game.recentWords.shift();
+        createEnemyElement(enemy);
+        game.enemies.push(enemy);
+        updateTargeting();
+    }
+
+    function removeEnemy(enemy, immediate) {
+        game.enemies = game.enemies.filter((item) => item.id !== enemy.id);
+        if (immediate) enemy.el.remove();
+        updateTargeting();
+    }
+
+    function aimCannon(enemy) {
+        if (!enemy) {
+            dom.cannonBarrel.style.transform = "rotate(-90deg)";
+            return;
         }
-    });
+        const width = dom.gameScreen.clientWidth;
+        const height = dom.gameScreen.clientHeight;
+        const x = (enemy.x / 100) * width;
+        const y = enemy.y;
+        const angle = Math.atan2(y - (height - 54), x - width / 2) * 180 / Math.PI;
+        dom.cannonBarrel.style.transform = `rotate(${angle}deg)`;
+    }
 
-    game.rafId = requestAnimationFrame(gameLoop);
-}
+    function updateTargeting() {
+        const typed = dom.myInput.value.trim().toLowerCase();
+        const candidates = game.enemies
+            .filter((enemy) => typed && enemy.word.startsWith(typed) && !enemy.destroyed)
+            .sort((a, b) => b.y - a.y);
+        const locked = candidates[0] || null;
 
-function startCountdown(callback) {
-    dom.input.prop("disabled", true);
-    let count = 3;
-    const el = $('<div class="countdown"></div>').text(count);
-    dom.fxLayer.append(el);
+        game.enemies.forEach((enemy) => {
+            const matching = Boolean(typed && enemy.word.startsWith(typed));
+            enemy.el.classList.toggle("matching", matching);
+            enemy.el.classList.toggle("locked", enemy === locked);
+            renderEnemyWord(enemy, matching ? typed.length : 0);
+        });
 
-    const tick = setInterval(() => {
-        count--;
-        if (count > 0) {
-            el.text(count);
-            el.removeClass("countdownPop");
-            void el[0].offsetWidth;
-            el.addClass("countdownPop");
+        aimCannon(locked);
+        dom.lockStatus.className = "lockStatus";
+        if (locked && locked.word === typed) {
+            dom.lockStatus.textContent = "LOCKED";
+            dom.lockStatus.classList.add("locked");
+        } else if (locked) {
+            dom.lockStatus.textContent = "TRACKING";
+            dom.lockStatus.classList.add("tracking");
         } else {
-            clearInterval(tick);
-            el.text("GO!");
-            setTimeout(() => {
-                el.remove();
-                callback();
-            }, 400);
+            dom.lockStatus.textContent = typed ? "NO MATCH" : "SCANNING";
+            if (typed) dom.lockStatus.classList.add("noMatch");
         }
-    }, 700);
+    }
 
-    el.addClass("countdownPop");
-}
+    function makeLaser(enemy) {
+        const width = dom.gameScreen.clientWidth;
+        const height = dom.gameScreen.clientHeight;
+        const startX = width / 2;
+        const startY = height - 50;
+        const endX = (enemy.x / 100) * width;
+        const endY = enemy.y;
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const distance = Math.hypot(dx, dy);
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        const laser = document.createElement("div");
+        laser.className = "laser";
+        laser.style.left = `${startX}px`;
+        laser.style.top = `${startY}px`;
+        laser.style.width = `${distance}px`;
+        laser.style.transform = `rotate(${angle}deg)`;
+        dom.fxLayer.append(laser);
+        requestAnimationFrame(() => laser.classList.add("visible"));
+        setTimer(() => laser.remove(), 180);
+    }
 
-function resetGame() {
-    cancelAnimationFrame(game.rafId);
-    clearAllEnemies();
-    dom.fxLayer.empty();
+    function makeExplosion(enemy, points) {
+        const explosion = document.createElement("div");
+        explosion.className = "explosion";
+        explosion.style.left = `${enemy.x}%`;
+        explosion.style.top = `${enemy.y}px`;
+        for (let index = 0; index < 8; index += 1) {
+            const spark = document.createElement("i");
+            spark.style.setProperty("--spark-angle", `${index * 45}deg`);
+            explosion.append(spark);
+        }
+        const popup = document.createElement("div");
+        popup.className = "scorePopup";
+        popup.textContent = `+${points}`;
+        popup.style.left = `${enemy.x}%`;
+        popup.style.top = `${Math.max(80, enemy.y - 26)}px`;
+        dom.fxLayer.append(explosion, popup);
+        setTimer(() => { explosion.remove(); popup.remove(); }, 720);
+    }
 
-    game.score = 0;
-    game.lives = maxLives;
-    game.combo = 0;
-    game.wave = 1;
-    game.spawnTimerMs = 0;
-    game.lastFrameTs = 0;
-    game.running = false;
+    function showAnnouncement(title, detail, danger) {
+        const el = document.createElement("div");
+        el.className = `battleAnnouncement${danger ? " danger" : ""}`;
+        const strong = document.createElement("strong");
+        strong.textContent = title;
+        const span = document.createElement("span");
+        span.textContent = detail || "";
+        el.append(strong, span);
+        dom.fxLayer.append(el);
+        setTimer(() => el.remove(), 1250);
+    }
 
-    updateHud();
-    dom.input.val("");
-    dom.gameOverPanel.addClass("hidden");
+    function pulseClass(element, className, duration) {
+        element.classList.remove(className);
+        void element.offsetWidth;
+        element.classList.add(className);
+        setTimer(() => element.classList.remove(className), duration);
+    }
 
-    startCountdown(() => {
-        game.running = true;
-        dom.input.prop("disabled", false).focus();
-        spawnEnemy();
+    function rewardHit(enemy) {
+        game.combo += 1;
+        game.bestCombo = Math.max(game.bestCombo, game.combo);
+        game.hits += 1;
+        const points = Core.calculatePoints(enemy.word, game.combo, enemy.danger);
+        const previousWave = game.wave;
+        game.score += points;
+        game.wave = Core.getWave(game.score);
+        makeExplosion(enemy, points);
+        sound.hit();
+
+        if (game.wave > previousWave) {
+            showAnnouncement(`SECTOR ${String(game.wave).padStart(2, "0")}`, "HOSTILE FREQUENCY INCREASING");
+            pulseClass(dom.gameScreen, "waveFlash", 500);
+            sound.wave();
+        } else if ([5, 10, 20].includes(game.combo)) {
+            showAnnouncement(`×${Core.getMultiplier(game.combo)} MULTIPLIER`, `${game.combo} HIT STREAK`);
+        }
+        updateHud();
+    }
+
+    function penalizeMiss() {
+        game.misses += 1;
+        game.combo = 0;
+        game.score = Math.max(0, game.score - 10);
+        game.wave = Core.getWave(game.score);
+        pulseClass(dom.commandDock, "inputMiss", 240);
+        sound.miss();
+        updateHud();
+        announce("Shot missed. Target lock reset.");
+    }
+
+    function submitShot() {
+        if (game.phase !== "playing") return;
+        const typed = dom.myInput.value.trim().toLowerCase();
+        if (!typed) return;
+        const target = game.enemies
+            .filter((enemy) => enemy.word === typed && !enemy.destroyed)
+            .sort((a, b) => b.y - a.y)[0];
+
+        dom.myInput.value = "";
+        if (!target) {
+            penalizeMiss();
+            updateTargeting();
+            return;
+        }
+
+        target.destroyed = true;
+        target.el.classList.add("destroyed");
+        makeLaser(target);
+        pulseClass(dom.cannon, "firing", 160);
+        sound.fire();
+        rewardHit(target);
+        game.enemies = game.enemies.filter((enemy) => enemy.id !== target.id);
+        setTimer(() => target.el.remove(), 220);
+        updateTargeting();
+    }
+
+    function breach(enemy) {
+        removeEnemy(enemy, true);
+        game.lives -= 1;
+        game.combo = 0;
+        game.breaches += 1;
+        pulseClass(dom.gameScreen, "screenShake", 360);
+        pulseClass(dom.gameScreen, "damageFlash", 450);
+        sound.breach();
+        updateHud();
+        announce(`Perimeter hit. ${game.lives} shields remaining.`);
+        if (game.lives <= 0) endGame();
+    }
+
+    function saveRecord() {
+        const record = activeRecord();
+        const isNewScore = game.score > record.score;
+        record.score = Math.max(record.score, game.score);
+        record.wave = Math.max(record.wave, game.wave);
+        record.combo = Math.max(record.combo || 0, game.bestCombo);
+        game.profile.records[game.profile.mode] = record;
+        saveProfile();
+        return isNewScore;
+    }
+
+    function endGame() {
+        if (game.phase === "ended") return;
+        game.phase = "ended";
+        cancelAnimationFrame(game.rafId);
+        clearTimers();
+        setCommandEnabled(false);
+        dom.pauseButton.disabled = true;
+        const isNewScore = saveRecord();
+        updateHud();
+
+        dom.finalScore.textContent = formatScore(game.score);
+        dom.finalWave.textContent = String(game.wave).padStart(2, "0");
+        dom.finalAccuracy.textContent = `${Core.calculateAccuracy(game.hits, game.misses)}%`;
+        dom.finalCombo.textContent = String(game.bestCombo);
+        dom.finalHits.textContent = String(game.hits);
+        dom.gameOverTitle.textContent = isNewScore ? "NEW PERSONAL BEST" : "MISSION ENDED";
+        dom.newRecord.classList.toggle("hidden", !isNewScore);
+        dom.gameOverPanel.classList.remove("hidden");
+        announce(`Mission ended. Final score ${game.score}.`);
+        setTimer(() => dom.restartButton.focus({ preventScroll: true }), 100);
+    }
+
+    function gameLoop(timestamp) {
+        if (game.phase !== "playing") return;
+        if (!game.lastFrameTs) game.lastFrameTs = timestamp;
+        const dt = Math.min((timestamp - game.lastFrameTs) / 1000, 0.05);
+        game.lastFrameTs = timestamp;
+
+        game.spawnTimerMs += dt * 1000;
+        const spawnInterval = Core.getSpawnInterval(game.profile.mode, game.wave, game.combo);
+        if (game.spawnTimerMs >= spawnInterval) {
+            game.spawnTimerMs = 0;
+            spawnEnemy();
+        }
+
+        const bottomLimit = dom.gameScreen.clientHeight - 88;
+        game.enemies.slice().forEach((enemy) => {
+            if (enemy.destroyed) return;
+            enemy.y += enemy.speed * dt;
+            enemy.el.style.setProperty("--enemy-y", `${enemy.y}px`);
+            const isDanger = enemy.y >= bottomLimit - DANGER_DISTANCE;
+            if (isDanger !== enemy.danger) {
+                enemy.danger = isDanger;
+                enemy.el.classList.toggle("danger", isDanger);
+            }
+            if (enemy.y >= bottomLimit) breach(enemy);
+        });
+
+        if (game.phase === "playing") game.rafId = requestAnimationFrame(gameLoop);
+    }
+
+    function pauseGame(automatic) {
+        if (game.phase !== "playing") return;
+        game.phase = "paused";
+        cancelAnimationFrame(game.rafId);
+        game.lastFrameTs = 0;
+        setCommandEnabled(false);
+        dom.pausePanel.classList.remove("hidden");
+        dom.pauseIcon.textContent = "▶";
+        dom.pauseButton.setAttribute("aria-label", "Resume game");
+        if (!automatic) dom.resumeButton.focus({ preventScroll: true });
+        announce("Mission paused.");
+    }
+
+    function resumeGame() {
+        if (game.phase !== "paused") return;
+        game.phase = "playing";
+        dom.pausePanel.classList.add("hidden");
+        dom.pauseIcon.textContent = "Ⅱ";
+        dom.pauseButton.setAttribute("aria-label", "Pause game");
+        setCommandEnabled(true);
+        dom.myInput.focus({ preventScroll: true });
         game.rafId = requestAnimationFrame(gameLoop);
-    });
-}
+        announce("Mission resumed.");
+    }
 
-$(function () {
-    dom.gameScreen = $("#gameScreen");
-    dom.wordLayer = $("#wordLayer");
-    dom.fxLayer = $("#fxLayer");
-    dom.input = $("#myInput");
-    dom.gameOverPanel = $("#gameOverPanel");
-    dom.gameOverText = $("#gameOverText");
-    dom.score = $("#currentScore");
-    dom.lives = $("#currentLives");
-    dom.combo = $("#currentCombo");
-    dom.wave = $("#currentWave");
-    dom.highScore = $("#currentHighScore");
-    dom.cannon = $("#cannon");
+    function togglePause() {
+        if (game.phase === "playing") pauseGame(false);
+        else if (game.phase === "paused") resumeGame();
+    }
 
-    loadHighScore();
+    function bindEvents() {
+        dom.modeButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                game.profile.mode = button.dataset.mode;
+                saveProfile();
+                updatePreferencesUi();
+                resetRunState();
+                updateHud();
+            });
+        });
 
-    dom.input.on("keydown", (event) => {
-        if (finishKeys.includes(event.key)) {
-            event.preventDefault();
+        dom.startButton.addEventListener("click", startGame);
+        dom.restartButton.addEventListener("click", startGame);
+        dom.resumeButton.addEventListener("click", resumeGame);
+        dom.quitButton.addEventListener("click", showBriefing);
+        dom.briefingButton.addEventListener("click", showBriefing);
+        dom.pauseButton.addEventListener("click", togglePause);
+        dom.fireButton.addEventListener("click", () => {
             submitShot();
-        }
-    });
+            if (game.phase === "playing") dom.myInput.focus({ preventScroll: true });
+        });
 
-    dom.input.on("input", highlightMatches);
+        dom.soundButton.addEventListener("click", () => {
+            game.profile.sound = !game.profile.sound;
+            saveProfile();
+            updatePreferencesUi();
+            if (game.profile.sound) sound.tone(440, 660, 0.12, 0.05, "triangle");
+        });
 
-    $("#restartButton").on("click", resetGame);
+        dom.languageButton.addEventListener("click", () => {
+            game.profile.language = game.profile.language === "en" ? "es" : "en";
+            saveProfile();
+            updatePreferencesUi();
+            announce(`Word language changed to ${game.profile.language === "en" ? "English" : "Spanish"}.`);
+        });
 
-    dom.gameScreen.on("click", () => dom.input.focus());
+        dom.myInput.addEventListener("input", () => {
+            dom.myInput.value = dom.myInput.value.replace(/[^a-záéíóúüñ]/gi, "").toLowerCase();
+            updateTargeting();
+        });
+        dom.myInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                submitShot();
+            }
+        });
 
-    resetGame();
-});
+        dom.gameScreen.addEventListener("pointerdown", (event) => {
+            if (game.phase === "playing" && !event.target.closest("button, input")) dom.myInput.focus({ preventScroll: true });
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && (game.phase === "playing" || game.phase === "paused")) {
+                event.preventDefault();
+                togglePause();
+                return;
+            }
+            if ((event.key === "p" || event.key === "P") && game.phase !== "briefing" && document.activeElement !== dom.myInput) {
+                event.preventDefault();
+                togglePause();
+                return;
+            }
+            if (event.key === "Enter" && !event.target.closest("button, input")) {
+                if (game.phase === "briefing") startGame();
+                else if (game.phase === "ended") startGame();
+                return;
+            }
+            if (game.phase === "playing" && event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey && document.activeElement !== dom.myInput) {
+                dom.myInput.focus({ preventScroll: true });
+            }
+        });
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden && game.phase === "playing") pauseGame(true);
+        });
+    }
+
+    function initialize() {
+        cacheDom();
+        loadProfile();
+        resetRunState();
+        bindEvents();
+        updatePreferencesUi();
+        updateHud();
+        showBriefing();
+
+        window.__textWars = Object.freeze({
+            getState: () => ({
+                phase: game.phase,
+                score: game.score,
+                lives: game.lives,
+                combo: game.combo,
+                wave: game.wave,
+                hits: game.hits,
+                misses: game.misses,
+                enemies: game.enemies.map(({ word, x, y, danger }) => ({ word, x, y, danger }))
+            }),
+            start: startGame,
+            pause: togglePause
+        });
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize);
+    else initialize();
+})();

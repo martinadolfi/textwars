@@ -1,0 +1,13 @@
+{
+  "name": "textwars",
+  "version": "2.0.0",
+  "private": true,
+  "description": "A tactical browser typing defense game.",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check game-core.js && node --check wordList.js && node --check app.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
