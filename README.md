@@ -1,44 +1,57 @@
 # TextWars
 
-A typing shooter game that runs in your browser. Words fall from the top of the screen — type them and hit Enter to destroy them before they reach your cannon.
+**Type fast. Strike first.**
 
-## How to Play
+TextWars is a tactical typing-defense game that runs entirely in the browser. Enemy codewords descend toward your defense perimeter; type a codeword and press **Enter** or **Space** to destroy it before it breaches your shields.
 
-1. Open `index.html` in a browser
-2. Type the falling words exactly
-3. Press **Enter** or **Space** to shoot
-4. Don't let words reach the bottom — you only have 3 lives
+## Play
 
-Build combos by hitting consecutive words for higher scores. Waves get faster as your score climbs.
-
-## Running It
-
-No build step, no dependencies to install. Just open the file:
+Open `index.html` directly, or serve the folder locally:
 
 ```bash
-# option 1: open directly
-open index.html
-
-# option 2: local server
 python3 -m http.server 8000
-# then visit http://localhost:8000
 ```
 
-## Tech
+Then visit `http://localhost:8000`.
 
-- Vanilla JS + jQuery 3.5.0
-- Pure CSS animations
-- localStorage for high scores
-- English & Spanish word lists (auto-detected from browser language)
+## Features
 
-## Project Structure
+- Three distinct difficulty modes: Cadet, Ace, and Onslaught
+- English and Spanish word pools with an in-game language switch
+- Target-lock feedback that tracks the most urgent matching threat
+- Score multipliers, danger-clear bonuses, sectors, accuracy, and streaks
+- Pause/resume, keyboard shortcuts, touch-friendly firing, and responsive layouts
+- Synthesized Web Audio effects with a persistent mute preference
+- Per-mode personal records stored locally—no account or backend required
+- Reduced-motion support and accessible labels/live state announcements
 
+## Controls
+
+| Action | Control |
+| --- | --- |
+| Lock a target | Type its codeword |
+| Fire | `Enter`, `Space`, or the Fire button |
+| Pause / resume | `Esc`, `P`, or the Pause button |
+| Restart | `Enter` on the mission-results screen |
+
+## Development
+
+The game remains dependency-free at runtime. The gameplay calculations live in a small standalone core so they can be tested with Node's built-in test runner.
+
+```bash
+npm test
+npm run check
 ```
-├── index.html       # Page markup
-├── app.js           # Game logic
-├── app.css          # Styles & animations
-├── wordList.js      # EN/ES word lists
-└── docs/
-    ├── product-brief.md
-    └── codebase.md
+
+## Structure
+
+```text
+index.html              interface and game states
+app.css                 responsive tactical-console visual system
+app.js                  browser game loop, input, effects, audio, persistence
+game-core.js            deterministic scoring, pacing, and word-selection rules
+wordList.js             English and Spanish word pools
+test/game-core.test.js  gameplay rule coverage
+assets/                 social preview artwork
+docs/                   product and architecture notes
 ```

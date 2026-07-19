@@ -2,44 +2,178 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TextWars: Typing Shooter</title>
-    <script src="jquery-3.5.0.min.js"></script>
-    <script src="wordList.js"></script>
-    <script src="app.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#07100f">
+    <meta name="description" content="TextWars is a fast, tactical typing defense game. Lock onto falling words and destroy them before they breach your shields.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="TextWars — Type fast. Strike first.">
+    <meta property="og:description" content="A fast, tactical typing defense game for your browser.">
+    <meta property="og:image" content="assets/textwars-social.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="TextWars — Type fast. Strike first.">
+    <meta name="twitter:description" content="Lock onto falling codewords and defend the perimeter.">
+    <meta name="twitter:image" content="assets/textwars-social.png">
+    <title>TextWars — Type fast. Strike first.</title>
     <link rel="stylesheet" href="app.css">
+    <script src="wordList.js" defer></script>
+    <script src="game-core.js" defer></script>
+    <script src="app.js" defer></script>
 </head>
 <body>
+    <div class="ambient ambient--one" aria-hidden="true"></div>
+    <div class="ambient ambient--two" aria-hidden="true"></div>
+
     <main class="appShell">
-        <header class="topBar">
-            <h1>TEXTWARS // Typing Shooter</h1>
-            <div class="badges">
-                <span class="badge">Wave <strong id="currentWave">1</strong></span>
-                <span class="badge">Combo <strong id="currentCombo">x1</strong></span>
-                <span class="badge">Score <strong id="currentScore">0</strong></span>
-                <span class="badge badgeLives">Lives <strong id="currentLives"></strong></span>
-                <span class="badge badgeHigh">Best <strong id="currentHighScore">0</strong></span>
+        <header class="siteHeader">
+            <a class="brand" href="#" aria-label="TextWars home">
+                <span class="brandMark" aria-hidden="true"><span></span></span>
+                <span class="brandType">
+                    <strong>TEXT<span>WARS</span></strong>
+                    <small>KEYBOARD DEFENSE SYSTEM</small>
+                </span>
+            </a>
+
+            <div class="headerActions">
+                <span class="systemStatus"><i></i> SYSTEM ONLINE</span>
+                <button class="iconButton" id="languageButton" type="button" aria-label="Switch word language">
+                    <span aria-hidden="true">◎</span><b id="languageLabel">EN</b>
+                </button>
+                <button class="iconButton" id="soundButton" type="button" aria-label="Mute sound" aria-pressed="true">
+                    <span id="soundIcon" aria-hidden="true">◖))</span><b class="buttonText">SOUND</b>
+                </button>
+                <button class="iconButton" id="pauseButton" type="button" aria-label="Pause game" disabled>
+                    <span id="pauseIcon" aria-hidden="true">Ⅱ</span><b class="buttonText">PAUSE</b>
+                </button>
             </div>
         </header>
 
-        <section class="controls">
-            <input type="text" id="myInput" autocomplete="off" placeholder="Type enemy word + Enter / Space to shoot" />
-            <button id="restartButton" type="button">Restart Match</button>
-        </section>
-
-        <section id="gameScreen" class="gameScreen" aria-label="Typing battlefield">
-            <div class="scanlines"></div>
-            <div class="stars"></div>
-            <div id="wordLayer" class="wordLayer"></div>
-            <div id="fxLayer" class="fxLayer"></div>
-            <div id="cannon" class="cannon"></div>
-            <div id="gameOverPanel" class="gameOverPanel hidden">
-                <h2>Mission Failed</h2>
-                <p id="gameOverText">Press restart to deploy again.</p>
+        <section class="gameFrame" aria-label="TextWars game console">
+            <div class="hudBar">
+                <div class="hudMetric hudMetric--score">
+                    <span>SCORE</span>
+                    <strong id="currentScore">000000</strong>
+                </div>
+                <div class="hudMetric">
+                    <span>SECTOR</span>
+                    <strong id="currentWave">01</strong>
+                </div>
+                <div class="hudMetric">
+                    <span>STREAK</span>
+                    <strong id="currentCombo">×1</strong>
+                </div>
+                <div class="hudMetric hudMetric--shields">
+                    <span>SHIELDS</span>
+                    <strong id="currentLives" aria-label="3 shields remaining">◆◆◆</strong>
+                </div>
+                <div class="hudMetric hudMetric--best">
+                    <span>PERSONAL BEST</span>
+                    <strong id="currentHighScore">000000</strong>
+                </div>
             </div>
+
+            <div class="sectorProgress" aria-label="Progress to next sector">
+                <span id="sectorProgressFill"></span>
+            </div>
+
+            <section id="gameScreen" class="gameScreen" aria-label="Typing battlefield" tabindex="-1">
+                <div class="spaceGlow" aria-hidden="true"></div>
+                <div class="starField starField--far" aria-hidden="true"></div>
+                <div class="starField starField--near" aria-hidden="true"></div>
+                <div class="gridPlane" aria-hidden="true"></div>
+                <div class="scanlines" aria-hidden="true"></div>
+                <div class="edgeVignette" aria-hidden="true"></div>
+
+                <div class="battleLabel battleLabel--left" aria-hidden="true">INCURSION VECTOR // 07</div>
+                <div class="battleLabel battleLabel--right" aria-hidden="true">ALT 34.82 // STABLE</div>
+
+                <div id="wordLayer" class="wordLayer" aria-hidden="true"></div>
+                <div id="fxLayer" class="fxLayer" aria-hidden="true"></div>
+
+                <div class="dangerLine" aria-hidden="true"><span>DEFENSE PERIMETER</span></div>
+                <div id="cannon" class="cannon" aria-hidden="true">
+                    <div class="cannonBarrel"></div>
+                    <div class="cannonCore"><span></span></div>
+                    <div class="cannonBase"></div>
+                </div>
+
+                <section id="briefingPanel" class="overlayPanel briefingPanel">
+                    <p class="eyebrow"><span></span> INTERACTIVE TYPING DEFENSE</p>
+                    <h1>TYPE FAST.<br><em>STRIKE FIRST.</em></h1>
+                    <p class="heroCopy">Enemy transmissions are breaking through. Lock on by typing each codeword, then fire before it crosses the perimeter.</p>
+
+                    <fieldset class="modePicker">
+                        <legend>SELECT DIFFICULTY</legend>
+                        <button class="modeCard" type="button" data-mode="cadet">
+                            <span>CADET</span><small>5 shields · calm pace</small>
+                        </button>
+                        <button class="modeCard selected" type="button" data-mode="ace">
+                            <span>ACE</span><small>3 shields · adaptive pace</small>
+                        </button>
+                        <button class="modeCard" type="button" data-mode="onslaught">
+                            <span>ONSLAUGHT</span><small>2 shields · no mercy</small>
+                        </button>
+                    </fieldset>
+
+                    <button id="startButton" class="primaryButton" type="button">
+                        <span>DEPLOY NOW</span><kbd>ENTER ↵</kbd>
+                    </button>
+                    <div class="controlLegend">
+                        <span><kbd>TYPE</kbd> Lock target</span>
+                        <span><kbd>↵ / SPACE</kbd> Fire</span>
+                        <span><kbd>ESC</kbd> Pause</span>
+                    </div>
+                </section>
+
+                <section id="pausePanel" class="overlayPanel pausePanel hidden" aria-live="polite">
+                    <p class="eyebrow"><span></span> SIMULATION SUSPENDED</p>
+                    <h2>PAUSED</h2>
+                    <p>Your sector is frozen. Take a breath—then get back in the fight.</p>
+                    <button id="resumeButton" class="primaryButton" type="button"><span>RESUME MISSION</span><kbd>ESC</kbd></button>
+                    <button id="quitButton" class="textButton" type="button">Return to briefing</button>
+                </section>
+
+                <section id="gameOverPanel" class="overlayPanel gameOverPanel hidden" aria-live="polite">
+                    <p class="eyebrow eyebrow--danger"><span></span> DEFENSE PERIMETER BREACHED</p>
+                    <h2 id="gameOverTitle">MISSION ENDED</h2>
+                    <div class="resultScore">
+                        <span>FINAL SCORE</span>
+                        <strong id="finalScore">000000</strong>
+                        <em id="newRecord" class="hidden">NEW RECORD</em>
+                    </div>
+                    <div class="resultGrid">
+                        <div><span>SECTOR</span><strong id="finalWave">01</strong></div>
+                        <div><span>ACCURACY</span><strong id="finalAccuracy">100%</strong></div>
+                        <div><span>BEST STREAK</span><strong id="finalCombo">0</strong></div>
+                        <div><span>THREATS CLEARED</span><strong id="finalHits">0</strong></div>
+                    </div>
+                    <button id="restartButton" class="primaryButton" type="button"><span>REDEPLOY</span><kbd>ENTER ↵</kbd></button>
+                    <button id="briefingButton" class="textButton" type="button">Change difficulty</button>
+                </section>
+
+                <div id="commandDock" class="commandDock" aria-label="Weapons console">
+                    <label for="myInput">
+                        <span class="promptIcon" aria-hidden="true">›_</span>
+                        <span class="srOnly">Type enemy codeword</span>
+                    </label>
+                    <input type="text" id="myInput" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="TYPE ENEMY CODEWORD…" disabled>
+                    <span id="lockStatus" class="lockStatus">SCANNING</span>
+                    <button id="fireButton" type="button" disabled><span>FIRE</span><kbd>↵</kbd></button>
+                </div>
+
+                <div id="liveAnnouncer" class="srOnly" aria-live="polite"></div>
+            </section>
         </section>
 
-        <p class="hint">Destroy incoming words by typing exact matches. Faster clears = bigger combo score.</p>
+        <footer class="missionFooter">
+            <div class="liveStats">
+                <span>ACCURACY <strong id="currentAccuracy">—</strong></span>
+                <span>THREATS <strong id="currentHits">0</strong></span>
+                <span>BEST STREAK <strong id="bestCombo">0</strong></span>
+            </div>
+            <p><span>FIELD NOTE</span> Prioritize the lowest transmission. Longer words and danger-zone clears award more points.</p>
+        </footer>
     </main>
 </body>
 </html>
